@@ -1,0 +1,16 @@
+[Unit]
+Description=UbuntuConsole Web UI (local services dashboard, port 9002)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/ryan/.hermes/hermes-agent/venv/bin/python /media/ryan/UbuntuDATA/AI_PROJECTS/UbuntuConsole/webui/server.py
+WorkingDirectory=/media/ryan/UbuntuDATA/AI_PROJECTS/UbuntuConsole
+Restart=always
+RestartSec=5
+Environment="RYAN_WEBUI_HOST=0.0.0.0"
+Environment="RYAN_WEBUI_PORT=9002"
+
+[Install]
+WantedBy=default.target

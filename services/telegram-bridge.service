@@ -1,0 +1,13 @@
+[Unit]
+Description=Telegram 橋接 — Telegram ↔ SillyTavern 對話橋接
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/ryan/.hermes/hermes-agent/venv/bin/python3 /media/ryan/UbuntuDATA/old%20ubuntu/ryan/telegram-sillytavern-bridge.py
+Restart=always
+RestartSec=5
+WorkingDirectory=/media/ryan/UbuntuDATA/old%20ubuntu/ryan
+
+[Install]
+WantedBy=default.target

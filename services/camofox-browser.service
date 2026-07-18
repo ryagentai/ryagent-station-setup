@@ -1,0 +1,17 @@
+[Unit]
+Description=Camofox anti-detection browser server (for Hermes Agent)
+Documentation=https://github.com/jo-inc/camofox-browser
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /media/ryan/UbuntuDATA/bin/camofox-wrapper.sh
+WorkingDirectory=/media/ryan/UbuntuDATA/AI_PROJECTS/camofox-browser
+Restart=always
+RestartSec=5
+Environment="NODE_ENV=production"
+Environment="PATH=/home/ryan/.hermes/node/bin:/home/ryan/.hermes/hermes-agent/venv/bin:/usr/local/bin:/usr/bin:/bin"
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=ComfyUI - Stable Diffusion GUI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/media/ryan/UbuntuDATA/ComfyUI/venv/bin/python /media/ryan/UbuntuDATA/ComfyUI/main.py
+WorkingDirectory=/media/ryan/UbuntuDATA/ComfyUI
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+KillMode=mixed
+KillSignal=SIGTERM
+SendSIGKILL=yes
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,29 @@
+[Unit]
+Description=S2S Speech-to-Speech Voice Assistant
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment="S2S_PROJECT_ROOT=/media/ryan/UbuntuDATA/AI_PROJECTS/s2s"
+Environment="S2S_VENV=/media/ryan/UbuntuDATA/AI_PROJECTS/s2s/venv/bin/python"
+Environment="LLAMA_SERVER=/media/ryan/UbuntuDATA/AI_PROJECTS/llama.cpp/build/bin/llama-server"
+Environment="S2S_MODELS_DIR=/media/ryan/UbuntuDATA/ai_models"
+Environment="HF_HOME=/media/ryan/UbuntuDATA/AI_PROJECTS/s2s/cache/huggingface"
+Environment="TRANSFORMERS_CACHE=/media/ryan/UbuntuDATA/AI_PROJECTS/s2s/cache/huggingface/hub"
+Environment="SEARCH_FALLBACK=duckduckgo"
+Environment="PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True,max_split_size_mb:128"
+Environment="CUDA_HOME=/usr/local/cuda"
+Environment="PATH=/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+WorkingDirectory=/media/ryan/UbuntuDATA/AI_PROJECTS/s2s/hf-realtime-voice
+ExecStart=/media/ryan/UbuntuDATA/AI_PROJECTS/s2s/venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 7860 --log-level info
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=s2s
+LimitNOFILE=65536
+
+[Install]
+WantedBy=default.target
