@@ -689,22 +689,6 @@ install_docker_containers() {
 }
 
 ###############################################################################
-# 11b. CouchDB (Obsidian sync)
-###############################################################################
-install_couchdb() {
-    log "Setting up CouchDB (Obsidian LiveSync)..."
-    local COUCHDB="$PROJECTS/couchdb"
-    if [[ -d "$COUCHDB" ]]; then
-        cd "$COUCHDB"
-        sg docker -c "docker compose pull" 2>/dev/null || true
-        sg docker -c "docker compose up -d" 2>/dev/null || warn "CouchDB start failed"
-        log "CouchDB ready (port 9300)"
-    else
-        warn "CouchDB project not found at $COUCHDB"
-    fi
-}
-
-###############################################################################
 # 11c. SearXNG (local search)
 ###############################################################################
 install_searxng() {
@@ -831,7 +815,6 @@ main() {
     install_s2s
     install_ubuntuconsole
     install_camofox
-    install_couchdb
     install_searxng
     register_kvm_vm
     install_docker_containers
