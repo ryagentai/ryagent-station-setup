@@ -110,18 +110,46 @@ Base data on /media/ryan/UbuntuDATA/ (separate disk for AI models & projects).
 ========================================
 ## DIRECTORY STRUCTURE
 ========================================
-  /media/ryan/UbuntuDATA/
+  /media/ryan/UbuntuDATA/     <-- ext4 数据盘（/dev/sda1），系统重装不丢
     AI_PROJECTS/
-      SillyTavern-home/    — SillyTavern
+      SillyTavern-home/    — SillyTavern (port 9277)
+      SillyTavern-voice-test/ — SillyTavern voice test (port 9001)
       llama.cpp/           — llama.cpp (GPU build + CPU build)
       firecrawl/fc-src/    — Firecrawl docker-compose
       s2s/                 — S2S voice assistant
       UbuntuConsole/       — Dashboard
       camofox-browser/     — Anti-detection browser
-      RyAgent/             — (custom project)
+      RyAgent/             — GitHub repo mirror
       searxng/             — Search engine
-      comfyui/ (root)      — ComfyUI
     ai_models/             — GGUF model files
     bin/                   — Utility scripts (camofox-wrapper.sh)
     ComfyUI/               — ComfyUI main directory
+    VM_Marvis/             — KVM VM disk (marvis-box Tiny11)
+    backup/
+      home-config/         <-- 系统重装前运行 backup-ryan-station.sh 备份到这里
+        .ssh/              — SSH keys (GitHub + VPS + VM)
+        ibus/              — Rime 输入法配置
+        rustdesk/          — RustDesk 配置（ID, peers, 密码）
+        gh/                — GitHub auth token
+        gnome/             — GNOME 桌面设置
+        .bashrc            — 终端配置
+        .profile           — 登录配置
+        .env               — Hermes 环境变量
   /home/ryan/.hermes/      — Hermes Agent config, skills, memories
+
+========================================
+## 重装恢复流程
+========================================
+1. 安装 Ubuntu 24.04 + 桌面
+2. 挂载 /dev/sda1 到 /media/ryan/UbuntuDATA
+3. 运行: `bash ~/setup-ryan-station.sh`
+   — 自动恢复：NVIDIA 驱动 + CUDA、SSH key、Rime、RustDesk、
+     GitHub auth、WiFi、GNOME 设置
+   — 自动安装：所有系统包 + KVM + Docker + 所有服务
+   — 自动编译：llama.cpp GPU + CPU
+   — 自动注册：marvis-box KVM VM（磁盘在 UbuntuDATA）
+   — 模型文件不需要下载（已在 UbuntuDATA/ai_models）
+
+⚠ 重装前必须运行: `bash ~/backup-ryan-station.sh`
+   把 ~/.ssh, ~/.config/ibus, ~/.config/rustdesk, .bashrc, .env
+   全部备份到 /media/ryan/UbuntuDATA/backup/home-config/
