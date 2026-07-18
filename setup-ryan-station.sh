@@ -39,17 +39,113 @@ install_system_packages() {
     log "Installing system packages..."
     sudo apt update -qq
     sudo apt install -y -qq \
+        # Container & build
         docker.io docker-compose-v2 \
         git cmake build-essential \
-        python3 python3-pip python3-venv python3-full \
+        python3 python3-pip python3-venv python3-full python3-pipx \
         nodejs npm \
-        rustdesk \
-        curl wget ffmpeg \
+        # Remote & tools
+        rustdesk freerdp2-x11 \
+        curl wget ffmpeg jq htop tmux \
+        # Audio
         libsndfile1-dev portaudio19-dev \
-        gh
+        # GitHub CLI
+        gh \
+        # KVM / libvirt virtualization
+        qemu-system-x86 qemu-utils \
+        libvirt-daemon libvirt-daemon-system libvirt-daemon-driver-qemu \
+        libvirt-clients \
+        virt-manager virtinst \
+        bridge-utils spice-vdagent \
+        # Chinese input (Rime + IBus)
+        ibus ibus-rime \
+        # Chinese fonts
+        fonts-noto-cjk fonts-wqy-zenhei fonts-noto-color-emoji
     sudo usermod -aG docker "$USER" 2>/dev/null || true
+    sudo usermod -aG libvirt "$USER" 2>/dev/null || true
     sudo systemctl enable docker
     sudo systemctl enable rustdesk
+    sudo systemctl enable libvirtd
+    log "System packages installed"
+}
+
+###############################################################################
+# 1c. NVIDIA driver + CUDA toolkit (RTX 4090)
+###############################################################################
+install_nvidia() {
+    log "Installing NVIDIA driver + CUDA toolkit..."
+    # Add NVIDIA repo if needed
+    if ! dpkg -l | grep -q 'nvidia-driver'; then
+        sudo add-apt-repository -y ppa:graphics-drivers/ppa 2>/dev/null || true
+        sudo apt update -qq
+    fi
+    # Install driver (595 for 4090)
+    sudo apt install -y -qq nvidia-driver-595-open nvidia-utils-595 nvidia-compute-utils-595
+    # CUDA toolkit 13.3
+    if [[ ! -d /usr/local/cuda ]]; then
+        log "Installing CUDA toolkit 13.3..."
+        sudo apt install -y -qq cuda-toolkit-13-3 cuda-nvtx-13-3 cuda-nsight-compute-13-3 2>/dev/null || {
+            warn "CUDA toolkit not in apt — downloading from NVIDIA..."
+            local CUDA_VER="13.3"
+            wget -q "https://developer.download.nvidia.com/compute/cuda/${CUDA_VER}/local_installers/cuda_${CUDA_VER//./_}_linux.run" -O /tmp/cuda.run
+            sudo sh /tmp/cuda.run --silent --toolkit --override 2>/dev/null || warn "CUDA install failed"
+            rm -f /tmp/cuda.run
+        }
+    fi
+    # Add CUDA to PATH
+    if ! grep -q "CUDA_HOME" ~/.bashrc 2>/dev/null; then
+        cat >> ~/.bashrc <<'EOF'
+
+# NVIDIA CUDA
+export CUDA_HOME=/usr/local/cuda
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+EOF
+        log "CUDA environment added to ~/.bashrc"
+    fi
+    log "NVIDIA driver $(nvidia-smi --query-gpu=driver_version --format=csv -i 0 2>/dev/null | tail -1) + CUDA installed"
+}
+
+###############################################################################
+# 1d. Locale & language (en_US + zh_CN)
+###############################################################################
+setup_locale() {
+    log "Setting up locale (en_US + zh_CN)..."
+    sudo apt install -y -qq language-pack-zh-hans 2>/dev/null || true
+    sudo locale-gen en_US.UTF-8 zh_CN.UTF-8 2>/dev/null || true
+    # Keep en_US as default but ensure zh_CN is available
+    if ! locale -a 2>/dev/null | grep -q zh_CN; then
+        echo "zh_CN.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen
+        sudo locale-gen 2>/dev/null || true
+    fi
+    log "Locale: en_US.UTF-8 (default), zh_CN.UTF-8 (available)"
+}
+
+###############################################################################
+# 1e. Rime input method configuration
+###############################################################################
+setup_rime() {
+    log "Configuring Rime input method..."
+    # Set IBus as input method framework
+    echo "GTK_IM_MODULE=ibus" >> ~/.profile
+    echo "QT_IM_MODULE=ibus" >> ~/.profile
+    echo "XMODIFIERS=@im=ibus" >> ~/.profile
+    # Rime custom config directory
+    mkdir -p ~/.config/ibus/rime
+    # Default Rime user config if not exists
+    if [[ ! -f ~/.config/ibus/rime/user.yaml ]]; then
+        cat > ~/.config/ibus/rime/user.yaml <<'EOF'
+# Rime user config
+# Default schema: luna_pinyin
+config:
+  schema_list:
+    - schema: luna_pinyin
+    - schema: luna_pinyin_simp
+    - schema: t9
+EOF
+        log "Rime default config created (luna_pinyin)"
+    fi
+    log "Rime input method configured via IBus"
 }
 
 ###############################################################################
@@ -196,8 +292,77 @@ install_sillytavern() {
     if [[ -f "$ST/config.yaml" ]]; then
         sed -i 's/^port:.*/port: 9277/' "$ST/config.yaml"
     fi
-    npm install --prefix "$ST"
-    log "SillyTavern ready at $ST (port 9277)"
+    # Second instance
+    local ST2="$PROJECTS/SillyTavern-voice-test"
+    if [[ ! -d "$ST2" ]]; then
+        git clone https://github.com/SillyTavern/SillyTavern.git "$ST2"
+    fi
+    cd "$ST2" && git pull || true
+    if [[ -f "$ST2/config.yaml" ]]; then
+        sed -i 's/^port:.*/port: 9001/' "$ST2/config.yaml"
+    fi
+    # Install npm deps for both
+    /home/ryan/.hermes/node/bin/npm install --prefix "$ST"
+    /home/ryan/.hermes/node/bin/npm install --prefix "$ST2"
+    # Create services
+    if [[ ! -f "$HOME/.config/systemd/user/sillytavern.service" ]]; then
+        mkdir -p "$HOME/.config/systemd/user"
+        cat > "$HOME/.config/systemd/user/sillytavern.service" <<'SVCEOF'
+[Unit]
+Description=SillyTavern - AI Chat Frontend (port 9277)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c '/home/ryan/.hermes/node/bin/npm start'
+WorkingDirectory=/media/ryan/UbuntuDATA/AI_PROJECTS/SillyTavern-home
+Environment="PATH=/home/ryan/.hermes/node/bin:/home/ryan/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+SVCEOF
+        systemctl --user daemon-reload
+        systemctl --user enable sillytavern
+        log "sillytavern.service created"
+    fi
+    if [[ ! -f "$HOME/.config/systemd/user/sillytavern-voice.service" ]]; then
+        cat > "$HOME/.config/systemd/user/sillytavern-voice.service" <<'SVCEOF'
+[Unit]
+Description=SillyTavern Voice Test (port 9001)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c '/home/ryan/.hermes/node/bin/npm start'
+WorkingDirectory=/media/ryan/UbuntuDATA/AI_PROJECTS/SillyTavern-voice-test
+Environment="PATH=/home/ryan/.hermes/node/bin:/home/ryan/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+SVCEOF
+        systemctl --user daemon-reload
+        systemctl --user enable sillytavern-voice
+        log "sillytavern-voice.service created"
+    fi
+    log "SillyTavern ready (ports 9277 + 9001)"
 }
 
 ###############################################################################
@@ -212,6 +377,37 @@ install_comfyui() {
     cd "$CU" && git pull || true
     python3 -m venv "$CU/venv"
     "$CU/venv/bin/pip" install -r "$CU/requirements.txt"
+    # Create ComfyUI service if not exists
+    if [[ ! -f "$HOME/.config/systemd/user/comfyui.service" ]]; then
+        log "Creating comfyui.service..."
+        mkdir -p "$HOME/.config/systemd/user"
+        cat > "$HOME/.config/systemd/user/comfyui.service" <<'SVCEOF'
+[Unit]
+Description=ComfyUI - Stable Diffusion GUI
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'source /media/ryan/UbuntuDATA/ComfyUI/venv/bin/activate && python main.py --listen 0.0.0.0 --port 8188'
+WorkingDirectory=/media/ryan/UbuntuDATA/ComfyUI
+Environment="PATH=/home/ryan/.hermes/node/bin:/home/ryan/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="VIRTUAL_ENV=/media/ryan/UbuntuDATA/ComfyUI/venv"
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+SVCEOF
+        systemctl --user daemon-reload
+        systemctl --user enable comfyui
+    fi
     log "ComfyUI ready at $CU (port 8188)"
 }
 
@@ -222,13 +418,43 @@ install_s2s() {
     log "Setting up S2S Voice Assistant..."
     local S2S="$PROJECTS/s2s"
     if [[ ! -d "$S2S" ]]; then
-        # Clone S2S project (adjust URL as needed)
-        warn "S2S repo not found — manual clone needed"
-        return 0
+        warn "S2S repo not found at $S2S — creating service placeholder"
+    else
+        python3 -m venv "$S2S/venv"
+        if [[ -f "$S2S/hf-realtime-voice/requirements.txt" ]]; then
+            "$S2S/venv/bin/pip" install -r "$S2S/hf-realtime-voice/requirements.txt"
+        fi
     fi
-    python3 -m venv "$S2S/venv"
-    if [[ -f "$S2S/hf-realtime-voice/requirements.txt" ]]; then
-        "$S2S/venv/bin/pip" install -r "$S2S/hf-realtime-voice/requirements.txt"
+    # Create S2S service if not exists
+    if [[ ! -f "$HOME/.config/systemd/user/s2s.service" ]]; then
+        mkdir -p "$HOME/.config/systemd/user"
+        cat > "$HOME/.config/systemd/user/s2s.service" <<'SVCEOF'
+[Unit]
+Description=S2S Voice Assistant
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'source /media/ryan/UbuntuDATA/AI_PROJECTS/s2s/venv/bin/activate && cd /media/ryan/UbuntuDATA/AI_PROJECTS/s2s/hf-realtime-voice && python app.py --port 7860'
+WorkingDirectory=/media/ryan/UbuntuDATA/AI_PROJECTS/s2s
+Environment="PATH=/home/ryan/.hermes/node/bin:/home/ryan/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="VIRTUAL_ENV=/media/ryan/UbuntuDATA/AI_PROJECTS/s2s/venv"
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+SVCEOF
+        systemctl --user daemon-reload
+        systemctl --user enable s2s
+        log "s2s.service created"
     fi
     log "S2S ready at $S2S (port 7860)"
 }
@@ -240,10 +466,89 @@ install_ubuntuconsole() {
     log "Setting up UbuntuConsole..."
     local UC="$PROJECTS/UbuntuConsole"
     if [[ ! -d "$UC" ]]; then
-        warn "UbuntuConsole not found — cloning or creating..."
-        return 0
+        warn "UbuntuConsole not found — skipping install, creating service placeholder"
+    fi
+    # Create UbuntuConsole service
+    if [[ ! -f "$HOME/.config/systemd/user/ubuntuconsole-webui.service" ]]; then
+        mkdir -p "$HOME/.config/systemd/user"
+        cat > "$HOME/.config/systemd/user/ubuntuconsole-webui.service" <<'SVCEOF'
+[Unit]
+Description=UbuntuConsole WebUI - Local Services Dashboard
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'cd /media/ryan/UbuntuDATA/AI_PROJECTS/UbuntuConsole && node index.js'
+WorkingDirectory=/media/ryan/UbuntuDATA/AI_PROJECTS/UbuntuConsole
+Environment="PATH=/home/ryan/.hermes/node/bin:/home/ryan/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+SVCEOF
+        systemctl --user daemon-reload
+        systemctl --user enable ubuntuconsole-webui
+        log "ubuntuconsole-webui.service created"
     fi
     log "UbuntuConsole ready at $UC (port 9002)"
+}
+
+###############################################################################
+# 9b. KVM VM registration (marvis-box)
+###############################################################################
+register_kvm_vm() {
+    log "Setting up KVM virtualization..."
+    # Ensure libvirt is running
+    sudo systemctl enable --now libvirtd 2>/dev/null || true
+    # Add user to libvirt group
+    sudo usermod -aG libvirt "$USER" 2>/dev/null || true
+
+    local VM_DISK="/media/ryan/UbuntuDATA/VM_Marvis/disk/marvis-box.qcow2"
+    if [[ -f "$VM_DISK" ]]; then
+        # Check if VM is already registered
+        if ! sg libvirt -c "virsh -c qemu:///system list --all" 2>/dev/null | grep -q "marvis-box"; then
+            log "Registering marvis-box VM..."
+            sg libvirt -c "virsh -c qemu:///system define - <<'VMEOF'
+<VirtualMachine type='kvm'>
+  <name>marvis-box</name>
+  <memory unit='KiB'>33554432</memory>
+  <currentMemory unit='KiB'>16777216</currentMemory>
+  <vcpu placement='static'>6</vcpu>
+  <os>
+    <type arch='x86_64' machine='pc-q35'>hvm</type>
+  </os>
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='$VM_DISK'/>
+      <target dev='sda' bus='sata'/>
+    </disk>
+    <interface type='bridge'>
+      <source bridge='virbr0'/>
+    </interface>
+    <graphics type='spice' port='5900' autoport='yes' listen='0.0.0.0'>
+      <listen type='address' address='0.0.0.0'/>
+    </graphics>
+  </devices>
+</VirtualMachine>
+VMEOF"
+            log "marvis-box VM registered"
+        else
+            log "marvis-box VM already registered"
+        fi
+    else
+        warn "VM disk not found at $VM_DISK — skipping VM registration"
+    fi
+    log "KVM virtualization ready"
 }
 
 ###############################################################################
@@ -337,7 +642,7 @@ start_llama_servers() {
 ###############################################################################
 enable_services() {
     log "Enabling systemd user services..."
-    for svc in hermes-gateway comfyui s2s ubuntuconsole-webui camofox-browser; do
+    for svc in hermes-gateway comfyui s2s ubuntuconsole-webui camofox-browser sillytavern sillytavern-voice; do
         if systemctl --user is-enabled "$svc" &>/dev/null; then
             systemctl --user enable --now "$svc" 2>/dev/null || warn "  $svc already running or failed"
         else
@@ -347,6 +652,7 @@ enable_services() {
     log "Enabling system services..."
     sudo systemctl enable --now docker 2>/dev/null || true
     sudo systemctl enable --now rustdesk 2>/dev/null || true
+    sudo systemctl enable --now libvirtd 2>/dev/null || true
 }
 
 ###############################################################################
@@ -400,6 +706,9 @@ main() {
 
     preflight
     install_system_packages
+    install_nvidia
+    setup_locale
+    setup_rime
     setup_github_auth
     install_node_hermes
     build_llama_gpu
@@ -410,6 +719,7 @@ main() {
     install_s2s
     install_ubuntuconsole
     install_camofox
+    register_kvm_vm
     install_docker_containers
     enable_services
     start_llama_servers
@@ -424,18 +734,28 @@ main() {
     echo "Services:"
     echo "  8888  — llama.cpp GPU (Qwen3.6-27B)"
     echo "  8889  — llama.cpp CPU (Gemma-4-E4B)"
-    echo "  9277  — SillyTavern"
+    echo "  9277  — SillyTavern (main)"
+    echo "  9001  — SillyTavern (voice-test)"
     echo "  8188  — ComfyUI"
     echo "  7860  — S2S Voice"
     echo "  9002  — UbuntuConsole"
     echo "  3002  — Firecrawl (Docker)"
     echo "  9090  — Telegram Bot API (Docker)"
+    echo "  5900  — KVM marvis-box (SPICE)"
+    echo ""
+    echo "System:"
+    echo "  NVIDIA driver 595 + CUDA 13.3"
+    echo "  KVM/libvirt (marvis-box Tiny11 VM)"
+    echo "  RustDesk remote desktop"
+    echo "  Rime input method (ibus)"
+    echo "  GitHub CLI (gh) authenticated"
     echo ""
     echo "Dashboard: http://localhost:9002"
     echo "SillyTavern: http://localhost:9277"
     echo "ComfyUI: http://localhost:8188"
     echo "S2S Voice: http://localhost:7860"
     echo "Firecrawl: http://localhost:3002"
+    echo "RustDesk: 192.168.0.x (remote)"
     echo ""
     echo "Restart all: bash ~/setup-ryan-station.sh"
     echo ""
