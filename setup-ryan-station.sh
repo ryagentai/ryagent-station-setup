@@ -22,6 +22,85 @@ HERMES="$HOME/.hermes"
 NODE_DIR="$HOME/.hermes/node"
 
 ###############################################################################
+# 0b. Restore home config from UbuntuDATA
+###############################################################################
+restore_home_config() {
+    local BACKUP="$DATA/backup/home-config"
+    if [[ ! -d "$BACKUP" ]]; then
+        warn "No backup found at $BACKUP — skipping restore"
+        return 0
+    fi
+    log "Restoring home config from $BACKUP..."
+
+    # SSH keys
+    if [[ -d "$BACKUP/.ssh" ]]; then
+        rm -rf ~/.ssh
+        cp -r "$BACKUP/.ssh" ~/.ssh
+        chmod 700 ~/.ssh
+        chmod 600 ~/.ssh/id_* ~/.ssh/authorized_keys 2>/dev/null || true
+        chmod 644 ~/.ssh/id_*.pub 2>/dev/null || true
+        log "SSH keys restored"
+    fi
+
+    # Rime input method
+    if [[ -d "$BACKUP/ibus" ]]; then
+        rm -rf ~/.config/ibus
+        cp -r "$BACKUP/ibus" ~/.config/ibus
+        chown -R "$USER":"$USER" ~/.config/ibus 2>/dev/null || true
+        log "Rime config restored"
+    fi
+
+    # RustDesk
+    if [[ -d "$BACKUP/rustdesk" ]]; then
+        rm -rf ~/.config/rustdesk
+        cp -r "$BACKUP/rustdesk" ~/.config/rustdesk
+        chown -R "$USER":"$USER" ~/.config/rustdesk 2>/dev/null || true
+        log "RustDesk config restored"
+    fi
+
+    # .bashrc
+    if [[ -f "$BACKUP/.bashrc" ]]; then
+        cp "$BACKUP/.bashrc" ~/.bashrc
+        log ".bashrc restored"
+    fi
+
+    # .profile
+    if [[ -f "$BACKUP/.profile" ]]; then
+        cp "$BACKUP/.profile" ~/.profile
+        log ".profile restored"
+    fi
+
+    # Hermes .env
+    if [[ -f "$BACKUP/.env" ]]; then
+        cp "$BACKUP/.env" ~/.hermes/.env
+        log "Hermes .env restored"
+    fi
+
+    # GitHub auth
+    if [[ -f "$BACKUP/gh_hosts.yml" ]]; then
+        mkdir -p ~/.config/gh
+        cp "$BACKUP/gh_hosts.yml" ~/.config/gh/hosts.yml
+        chmod 600 ~/.config/gh/hosts.yml
+        log "GitHub auth restored"
+    fi
+
+    # NetworkManager WiFi
+    if ls "$BACKUP/"*.nmconnection &>/dev/null 2>&1; then
+        sudo cp "$BACKUP/"*.nmconnection /etc/NetworkManager/system-connections/ 2>/dev/null || true
+        log "WiFi config restored"
+    fi
+
+    # GNOME settings
+    if [[ -d "$BACKUP/gnome" ]]; then
+        gsettings load org.gnome.desktop.lockdown "$BACKUP/gnome/lockdown.xml" 2>/dev/null || true
+        gsettings load org.gnome.desktop.session "$BACKUP/gnome/session.xml" 2>/dev/null || true
+        log "GNOME settings restored"
+    fi
+
+    log "Home config restore complete"
+}
+
+###############################################################################
 # 0. Pre-flight
 ###############################################################################
 preflight() {
@@ -705,6 +784,7 @@ main() {
     echo -e "${NC}"
 
     preflight
+    restore_home_config
     install_system_packages
     install_nvidia
     setup_locale
