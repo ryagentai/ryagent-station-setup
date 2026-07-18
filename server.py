@@ -59,7 +59,7 @@ SERVICES = [
     # ── AI 推理服務 ──
     ("llama",     "llama.cpp (GPU)",       "本地 AI 推理 — GPU 加速 · port 8888",        "ai",    8888,  "manual",   "llama-server"),
     ("llama-cpu", "llama.cpp (CPU)",       "本地 AI 推理 — CPU 模式 · port 8889",        "ai",    8889,  "manual",   "llama-server"),
-    ("telegram",  "Telegram 橋接",          "Telegram ↔ SillyTavern 對話橋接",            "ai",    None,  "unit",     "telegram-bridge"),
+    ("silly-bridge", "SillyTavern Telegram Bridge", "Telegram ↔ SillyTavern 對話橋接",            "ai",    None,  "unit",     "telegram-bridge"),
     ("s2s",       "S2S 語音助手",          "Speech-to-Speech 即時語音對話 · port 9299",  "ai",    9299,  "unit",     "s2s"),
     # ── AI 應用 ──
     ("hermes",    "Hermes 網關",           "訊息中樞 — 管理 AI 代理與通訊平台 · port 9090", "ai",  9090,  "unit",     "hermes-gateway"),
@@ -1695,7 +1695,7 @@ function renderBento(list) {
     camofox:['col-6'],
     comfyui:['col-4'],
     webui:  ['col-4'],
-    telegram:['col-6'],
+    silly-bridge:['col-6'],
     hermes: ['col-6'],
     s2s:    ['col-6'],
     llama-cpu:['col-6'],
