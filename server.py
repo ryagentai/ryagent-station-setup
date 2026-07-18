@@ -59,13 +59,16 @@ SERVICES = [
     # ── AI 推理服務 ──
     ("llama",     "llama.cpp (GPU)",       "本地 AI 推理 — GPU 加速 · port 8888",        "ai",    8888,  "manual",   "llama-server"),
     ("llama-cpu", "llama.cpp (CPU)",       "本地 AI 推理 — CPU 模式 · port 8889",        "ai",    8889,  "manual",   "llama-server"),
-    ("telegram",  "Telegram 橋接",         "Telegram ↔ SillyTavern 對話橋接",            "ai",    None,  "unit",     "telegram-bridge"),
+    ("telegram",  "Telegram 橋接",          "Telegram ↔ SillyTavern 對話橋接",            "ai",    None,  "unit",     "telegram-bridge"),
     ("s2s",       "S2S 語音助手",          "Speech-to-Speech 即時語音對話 · port 9299",  "ai",    9299,  "unit",     "s2s"),
     # ── AI 應用 ──
     ("hermes",    "Hermes 網關",           "訊息中樞 — 管理 AI 代理與通訊平台 · port 9090", "ai",  9090,  "unit",     "hermes-gateway"),
     ("silly",     "SillyTavern",           "角色扮演聊天 UI · port 9277",                  "ai",    9277,  "unit",     "sillytavern"),
     ("comfyui",   "ComfyUI",              "AI 繪圖工作流 (Stable Diffusion) · port 8188", "ai",    8188,  "unit",     "comfyui"),
     ("camofox",   "Camofox 瀏覽器",        "反檢測瀏覽器 — 多賬號管理 · port 9377",       "ai",    9377,  "unit",     "camofox-browser"),
+    # ── 基礎服務 ──
+    ("ssh",       "SSH (ryagent)",          "遠程登錄 — 端口 24681 · 密钥认证",            "infra", 24681, "manual",   "ssh"),
+    ("docker",    "Docker 容器",           "Firecrawl API · port 3002",                   "infra", 3002,  "manual",   "docker"),
     # ── 工具 ──
     ("webui",     "UbuntuConsole 控制台",   "本儀表板 — 服務總覽 · port 9002",             "tool",  9002,  "unit",     "ubuntuconsole-webui"),
     # ── 虛擬機 ──
@@ -619,6 +622,7 @@ INDEX_HTML = r"""<!doctype html>
   --c-marvis:      #e6a25c;
   --c-samba:       #8693d4;
   --c-ssh:         #9ba3af;
+  --c-docker:      #2496ed;
 
   /* Type */
   --font: "InterVariable", "Inter", -apple-system, BlinkMacSystemFont,
@@ -888,6 +892,7 @@ button { font: inherit; cursor: pointer; }
 .card-icon[data-c="marvis"]   { background: rgba(230,162,92,0.10);  color: var(--c-marvis); }
 .card-icon[data-c="samba"]    { background: rgba(134,147,212,0.10); color: var(--c-samba); }
 .card-icon[data-c="ssh"]      { background: rgba(155,163,175,0.10); color: var(--c-ssh); }
+.card-icon[data-c="docker"]   { background: rgba(36,150,237,0.10);  color: var(--c-docker); }
 
 .card-title { flex: 1; min-width: 0; }
 .card-title h3 {
@@ -1594,6 +1599,7 @@ const I = {
   marvis:   '<svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="14" rx="1.5"/><path d="M8 21h8M12 18v3"/></svg>',
   samba:    '<svg class="icon" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 12l9 4 9-4M3 17l9 4 9-4"/></svg>',
   ssh:      '<svg class="icon" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>',
+  docker:   '<svg class="icon" viewBox="0 0 24 24"><path d="M13.983 11.078h-.527v-.527h.527v.527zm1.583 0h-.527v-.527h.527v.527zm1.583 0h-.527v-.527h.527v.527zm1.583 0h-.527v-.527h.527v.527zm1.583 0h-.527v-.527h.527v.527zm1.583 0h-.527v-.527h.527v.527zM3.043 17.625l.035-3.29h4.541l-.239 3.29H3.043zm11.599 0l-.239 3.29H6.369l-.239-3.29h8.512z"/></svg>',
 };
 const OPENER = {
   silly:    {url: 'http://192.168.0.251:9277',        label: 'UI',     network: 'LAN'},
@@ -1691,8 +1697,10 @@ function renderBento(list) {
     webui:  ['col-4'],
     telegram:['col-6'],
     hermes: ['col-6'],
-    s2s:    ['col-4'],
-    'llama-cpu': ['col-4'],
+    s2s:    ['col-6'],
+    llama-cpu:['col-6'],
+    ssh:    ['col-4'],
+    docker: ['col-4'],
   };
   function one(s) {
     const cls = (LAYOUT[s.id] || ['col-4']).join(' ');
