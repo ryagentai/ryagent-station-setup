@@ -63,13 +63,11 @@ SERVICES = [
     ("s2s",       "S2S 語音助手",          "Speech-to-Speech 即時語音對話 · port 9299",  "ai",    9299,  "unit",     "s2s"),
     # ── AI 應用 ──
     ("hermes",    "Hermes 網關",           "訊息中樞 — 管理 AI 代理與通訊平台 · port 9090", "ai",  9090,  "unit",     "hermes-gateway"),
-    ("silly",     "SillyTavern",           "角色扮演聊天 UI · port 9277",                  "ai",    9277,  "manual",   "sillytavern"),
+    ("silly",     "SillyTavern",           "角色扮演聊天 UI · port 9277",                  "ai",    9277,  "unit",     "sillytavern"),
     ("comfyui",   "ComfyUI",              "AI 繪圖工作流 (Stable Diffusion) · port 8188", "ai",    8188,  "unit",     "comfyui"),
     ("camofox",   "Camofox 瀏覽器",        "反檢測瀏覽器 — 多賬號管理 · port 9377",       "ai",    9377,  "unit",     "camofox-browser"),
     # ── 工具 ──
     ("webui",     "UbuntuConsole 控制台",   "本儀表板 — 服務總覽 · port 9002",             "tool",  9002,  "unit",     "ubuntuconsole-webui"),
-    # ── Docker ──
-    ("dockry",    "DockRyagent",           "Docker AI 隔離容器",                           "docker", 2222, "docker",   "DockRyagent"),
     # ── 虛擬機 ──
     ("marvis",    "marvis-box VM",         "Windows Tiny11 虛擬機 · VNC 5900",            "vm",    5900,  "virsh",    "marvis-box"),
 ]
@@ -619,7 +617,6 @@ INDEX_HTML = r"""<!doctype html>
   --c-telegram:    #6aa9e0;
   --c-hermes:      #5cc4b5;
   --c-marvis:      #e6a25c;
-  --c-dockry:      #5cb8d6;
   --c-samba:       #8693d4;
   --c-ssh:         #9ba3af;
 
@@ -889,7 +886,6 @@ button { font: inherit; cursor: pointer; }
 .card-icon[data-c="hermes"]   { background: rgba(92,196,181,0.10);  color: var(--c-hermes); }
 .card-icon[data-c="couchdb"]  { background: rgba(255,154,118,0.10); color: #ff9a76; }
 .card-icon[data-c="marvis"]   { background: rgba(230,162,92,0.10);  color: var(--c-marvis); }
-.card-icon[data-c="dockry"]   { background: rgba(92,184,214,0.10);  color: var(--c-dockry); }
 .card-icon[data-c="samba"]    { background: rgba(134,147,212,0.10); color: var(--c-samba); }
 .card-icon[data-c="ssh"]      { background: rgba(155,163,175,0.10); color: var(--c-ssh); }
 
@@ -1596,7 +1592,6 @@ const I = {
   hermes:   '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>',
   couchdb:  '<svg class="icon" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="9" ry="3"/><path d="M3 6v6c0 1.66 4.03 3 9 3s9-1.34 9-3V6M3 12v6c0 1.66 4.03 3 9 3s9-1.34 9-3v-6"/></svg>',
   marvis:   '<svg class="icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="14" rx="1.5"/><path d="M8 21h8M12 18v3"/></svg>',
-  dockry:   '<svg class="icon" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></svg>',
   samba:    '<svg class="icon" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zM3 12l9 4 9-4M3 17l9 4 9-4"/></svg>',
   ssh:      '<svg class="icon" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>',
 };
@@ -1693,11 +1688,11 @@ function renderBento(list) {
     silly:  ['col-6'],
     camofox:['col-6'],
     comfyui:['col-4'],
-    dockry: ['col-4'],
-    samba:  ['col-4'],
+    webui:  ['col-4'],
     telegram:['col-6'],
     hermes: ['col-6'],
-    ssh:    ['col-4'],
+    s2s:    ['col-4'],
+    'llama-cpu': ['col-4'],
   };
   function one(s) {
     const cls = (LAYOUT[s.id] || ['col-4']).join(' ');
