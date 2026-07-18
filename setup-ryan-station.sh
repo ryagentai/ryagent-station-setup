@@ -689,6 +689,38 @@ install_docker_containers() {
 }
 
 ###############################################################################
+# 11b. CouchDB (Obsidian sync)
+###############################################################################
+install_couchdb() {
+    log "Setting up CouchDB (Obsidian LiveSync)..."
+    local COUCHDB="$PROJECTS/couchdb"
+    if [[ -d "$COUCHDB" ]]; then
+        cd "$COUCHDB"
+        sg docker -c "docker compose pull" 2>/dev/null || true
+        sg docker -c "docker compose up -d" 2>/dev/null || warn "CouchDB start failed"
+        log "CouchDB ready (port 5984)"
+    else
+        warn "CouchDB project not found at $COUCHDB"
+    fi
+}
+
+###############################################################################
+# 11c. SearXNG (local search)
+###############################################################################
+install_searxng() {
+    log "Setting up SearXNG..."
+    local SearXNG="$PROJECTS/searxng"
+    if [[ -d "$SearXNG" ]]; then
+        cd "$SearXNG"
+        sg docker -c "docker compose pull" 2>/dev/null || true
+        sg docker -c "docker compose up -d" 2>/dev/null || warn "SearXNG start failed"
+        log "SearXNG ready (port 8888 — may conflict with llama.cpp)"
+    else
+        warn "SearXNG project not found at $SearXNG"
+    fi
+}
+
+###############################################################################
 # 12. Start llama.cpp servers
 ###############################################################################
 start_llama_servers() {
@@ -799,6 +831,8 @@ main() {
     install_s2s
     install_ubuntuconsole
     install_camofox
+    install_couchdb
+    install_searxng
     register_kvm_vm
     install_docker_containers
     enable_services
@@ -822,6 +856,8 @@ main() {
     echo "  3002  — Firecrawl (Docker)"
     echo "  9090  — Telegram Bot API (Docker)"
     echo "  5900  — KVM marvis-box (SPICE)"
+    echo "  5984  — CouchDB (Obsidian sync)"
+    echo "  8080  — SearXNG (local search, conflicts with llama:8888)"
     echo ""
     echo "System:"
     echo "  NVIDIA driver 595 + CUDA 13.3"
