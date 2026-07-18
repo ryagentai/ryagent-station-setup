@@ -45,10 +45,46 @@ install_system_packages() {
         nodejs npm \
         rustdesk \
         curl wget ffmpeg \
-        libsndfile1-dev portaudio19-dev
+        libsndfile1-dev portaudio19-dev \
+        gh
     sudo usermod -aG docker "$USER" 2>/dev/null || true
     sudo systemctl enable docker
     sudo systemctl enable rustdesk
+}
+
+###############################################################################
+# 1b. GitHub auth (HTTPS + gh token — no manual SSH key needed)
+###############################################################################
+setup_github_auth() {
+    log "Setting up GitHub auth..."
+    # Install gh CLI if not present
+    if ! command -v gh &>/dev/null; then
+        log "Installing gh CLI..."
+        type -p curl >/dev/null || sudo apt install -y curl
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+        sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        sudo apt update -qq
+        sudo apt install -y gh
+    fi
+
+    # Check if already logged in
+    if gh auth status &>/dev/null; then
+        log "GitHub already authenticated as $(gh api user --jq .login 2>/dev/null)"
+    else
+        warn "GitHub not authenticated — please run: gh auth login --web --git-protocol=https"
+        return 0
+    fi
+
+    # Ensure git protocol is https (not ssh which needs key registration)
+    gh auth status 2>&1 | grep -q "Git operations protocol: ssh" && {
+        log "Switching git protocol from ssh to https..."
+        gh auth setup-git
+    } || log "Git protocol already https"
+
+    # Configure credential helper
+    gh auth setup-git
+    log "GitHub auth configured (HTTPS + token)"
 }
 
 ###############################################################################
@@ -364,6 +400,7 @@ main() {
 
     preflight
     install_system_packages
+    setup_github_auth
     install_node_hermes
     build_llama_gpu
     build_llama_cpu
