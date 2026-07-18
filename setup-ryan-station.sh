@@ -698,7 +698,7 @@ install_couchdb() {
         cd "$COUCHDB"
         sg docker -c "docker compose pull" 2>/dev/null || true
         sg docker -c "docker compose up -d" 2>/dev/null || warn "CouchDB start failed"
-        log "CouchDB ready (port 5984)"
+        log "CouchDB ready (port 9300)"
     else
         warn "CouchDB project not found at $COUCHDB"
     fi
@@ -708,13 +708,13 @@ install_couchdb() {
 # 11c. SearXNG (local search)
 ###############################################################################
 install_searxng() {
-    log "Setting up SearXNG..."
+    # SearXNG
     local SearXNG="$PROJECTS/searxng"
     if [[ -d "$SearXNG" ]]; then
         cd "$SearXNG"
         sg docker -c "docker compose pull" 2>/dev/null || true
         sg docker -c "docker compose up -d" 2>/dev/null || warn "SearXNG start failed"
-        log "SearXNG ready (port 8888 — may conflict with llama.cpp)"
+        log "SearXNG ready (port 9301)"
     else
         warn "SearXNG project not found at $SearXNG"
     fi
@@ -848,16 +848,16 @@ main() {
     echo "Services:"
     echo "  8888  — llama.cpp GPU (Qwen3.6-27B)"
     echo "  8889  — llama.cpp CPU (Gemma-4-E4B)"
-    echo "  9277  — SillyTavern (main)"
-    echo "  9001  — SillyTavern (voice-test)"
     echo "  8188  — ComfyUI"
-    echo "  7860  — S2S Voice"
+    echo "  9277  — SillyTavern (main)"
+    echo "  9288  — SillyTavern (voice-test)"
+    echo "  9299  — S2S Voice"
     echo "  9002  — UbuntuConsole"
-    echo "  3002  — Firecrawl (Docker)"
     echo "  9090  — Telegram Bot API (Docker)"
+    echo "  9300  — CouchDB (Obsidian sync, Docker)"
+    echo "  9301  — SearXNG (local search, Docker)"
+    echo "  3002  — Firecrawl (Docker, official)"
     echo "  5900  — KVM marvis-box (SPICE)"
-    echo "  5984  — CouchDB (Obsidian sync)"
-    echo "  8080  — SearXNG (local search, conflicts with llama:8888)"
     echo ""
     echo "System:"
     echo "  NVIDIA driver 595 + CUDA 13.3"

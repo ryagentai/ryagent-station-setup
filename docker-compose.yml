@@ -1,0 +1,17 @@
+services:
+  couchdb:
+    image: couchdb:3
+    container_name: couchdb-livesync
+    restart: unless-stopped
+    ports:
+      - "9300:5984"
+    environment:
+      COUCHDB_USER: ryan
+      COUCHDB_PASSWORD: ryan-obsidian-sync-2026
+    volumes:
+      - ./data:/opt/couchdb/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5984/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
